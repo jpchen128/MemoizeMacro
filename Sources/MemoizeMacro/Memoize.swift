@@ -12,16 +12,17 @@ public struct Memoize: PeerMacro {
     guard let funcDecl = declaration.as(FunctionDeclSyntax.self) else {
       throw MemoizeError.onlyApplicableToFunctions
     }
-    
+
     let funcName = funcDecl.name.text
     let parameters = funcDecl.signature.parameterClause.parameters
     let returnType = funcDecl.signature.returnClause?.type.trimmedDescription ?? "Void"
-    
+    let modifiers = funcDecl.modifiers.map { $0.name.text }.joined(separator: " ")
+
     let cacheKeyParams = parameters.map { param in
       let paramName = param.firstName.text
       return "\(paramName): \\(\(paramName))"
     }.joined(separator: ", ")
-    
+
     let paramNames = parameters.map { param in
       let firstName = param.firstName.text
       if let secondName = param.secondName?.text {
@@ -30,13 +31,13 @@ public struct Memoize: PeerMacro {
         return "\(firstName): \(firstName)"
       }
     }.joined(separator: ", ")
-    
+
     let capitalizedFuncName = funcName.prefix(1).uppercased() + funcName.dropFirst()
-    
+
     let memoizedFunc = """
             private var memoize\(funcName)Cache: [String: \(returnType)] = [:]
-            
-            func memoized\(capitalizedFuncName)(\(parameters)) -> \(returnType) {
+
+            \(modifiers != "" ? modifiers + " " : "")func memoized\(capitalizedFuncName)(\(parameters)) -> \(returnType) {
                 let cacheKey = "\(cacheKeyParams)"
                 if let cachedResult = memoize\(funcName)Cache[cacheKey] {
                     return cachedResult
@@ -46,7 +47,7 @@ public struct Memoize: PeerMacro {
                 return result
             }
             """
-    
+
     return [DeclSyntax(stringLiteral: memoizedFunc)]
   }
 }
